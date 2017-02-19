@@ -2,8 +2,9 @@
 // ConsoleApplication1.pch will be the pre-compiled header
 // stdafx.obj will contain the pre-compiled type information
 
-#include <Poco\MD5Engine.h>
 #include <bitset>
+#include <Poco\MD5Engine.h>
+#include <glm\glm.hpp>
 #include "stdafx.h"
 
 #pragma region Backend
@@ -118,7 +119,8 @@ string ulToHex(unsigned long item) {
 	stringstream ss;
 	ss << hex << item;
 	ss >> temp;
-
+	if (temp.length() == 1)
+		temp.insert(temp.begin(), '0');
 	return temp;
 }
 #pragma endregion
@@ -134,12 +136,35 @@ string hexPlus(string A, string B, string C) {
 void rotWord8b(string &item, short iter) {
 	string temp("");
 	size_t length = item.length() - 1;
-	do {
+	while (iter > 0) {
 		temp = item[0]; temp += item[1];
 		item += temp;
 		item = string(item.begin() + 2, item.end());
 		--iter;
-	} while (iter > 0);
+	};
+}
+uint8_t gmult(uint8_t a, uint8_t b) {
+
+	uint8_t p = 0, i = 0, hbs = 0;
+
+	for (i = 0; i < 8; i++) {
+		if (b & 1) {
+			p ^= a;
+		}
+
+		hbs = a & 0x80;
+		a <<= 1;
+		if (hbs) a ^= 0x1b; // 0000 0001 0001 1011	
+		b >>= 1;
+	}
+
+	return (uint8_t)p;
+}
+void coef_mult(uint8_t* a, uint8_t* b, uint8_t* d) {
+	d[0] = gmult(a[0], b[0]) ^ gmult(a[3], b[1]) ^ gmult(a[2], b[2]) ^ gmult(a[1], b[3]);
+	d[1] = gmult(a[1], b[0]) ^ gmult(a[0], b[1]) ^ gmult(a[3], b[2]) ^ gmult(a[2], b[3]);
+	d[2] = gmult(a[2], b[0]) ^ gmult(a[1], b[1]) ^ gmult(a[0], b[2]) ^ gmult(a[3], b[3]);
+	d[3] = gmult(a[3], b[0]) ^ gmult(a[2], b[1]) ^ gmult(a[1], b[2]) ^ gmult(a[0], b[3]);
 }
 #pragma endregion
 
@@ -187,8 +212,7 @@ void makeRoundKeys(vector<string> &roundKeys, const string cipherKey) {
 		string Wi = "";
 		string Wi_4 = "";
 		string Rcon = "";
-		if (i == 3)
-			cout << "";
+
 		//making first column
 		for (int j = 6; j < 32; j += 8) {
 			Wi += roundKeys[i-1][j];
@@ -252,6 +276,8 @@ void makeRoundKeys(vector<string> &roundKeys, const string cipherKey) {
 			}
 		}
 	}
+	//remove cipher-key from key storage
+	roundKeys.erase(roundKeys.begin());
 }
 
 void subBytes(string& block) {
@@ -272,13 +298,70 @@ void subBytes(string& block) {
 }
 
 void shiftRows(string& block) {
+	size_t length = block.length();
 
+	string temp = "";
+
+	for (int i = 0; i < length; i+=8) {
+		string row = "";
+		for (int j = 0; (j < 8) && (j+i < length); j++) {
+			row += block[i + j];
+		}
+		rotWord8b(row, i / 8);
+		temp += row;
+	}
+
+	block = temp;
 }
 void mixColumns(string& block) {
+	size_t length = block.length();
 
+	string temp = "";
+	uint8_t a[] = { 0x02, 0x01, 0x01, 0x03 };
+	uint8_t col[4], res[4];
+	for (int i = 0; i < length; i+=8) {
+		for (int j = 0; (j < 8) && (i+j+1 < length); j+=2) {
+			string word = "";
+			(word += block[i + j]) += block[i + j + 1];
+			col[j/2] = hexToBin(word).to_ulong();
+		}
+
+		coef_mult(a, col, res);
+
+		for (int j = 0; j < 4; j++) {
+			temp += ulToHex(res[j]);
+		}
+	}
+	block = temp;
 }
-void addRoundKey(string&, const string) {
+void addRoundKey(string& block, const string key) {
+	size_t length = block.length();
+	string temp(32, '0');
+	for (int i = 0; i < 8; i += 2) {
+		string col = "", keyCol = "", res = "";
+		for (int j = i; j < length; j += 8) {
+			col += block[j];
+			col += block[j + 1];
+		}
 
+		for (int j = i; j < length; j += 8) {
+			keyCol += key[j];
+			keyCol += key[j + 1];
+		}
+
+		for (int j = 0; j < 8; j+=2) {
+			string A, B, C = "00";
+			A = col[j]; A += col[j + 1];
+			B = keyCol[j]; B += keyCol[j + 1];
+			res += hexPlus(A, B, C);
+		}
+
+		for (int j = i, k = 0; j < length, k < 8; j += 8, k += 2) {
+			temp[j] = res[k];
+			temp[j+1] = res[k+1];
+		}
+	}
+	block = temp;
 }
 
 #pragma endregion

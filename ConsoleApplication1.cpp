@@ -50,30 +50,35 @@ public:
 
 	void encrypt(string password) {
 		auto blocks = splitText(m_text, 16);
-		//string cipherKey = md5(password);
-		string cipherKey = "2b28ab097eaef7cf15d2154f16a6883c";
+		string cipherKey = md5(password);
 		m_text = "";
 		for (unsigned i = 0; i < blocks.size(); i++)
 			for (auto it : blocks[i]) 
 				m_text += toHex((unsigned char)it);
 
 		blocks = splitText(m_text, 32);
-		
+
+		while ((blocks.cend()-1)->length() != 32) {
+			(blocks.end()-1)->push_back('0');
+		}
+
 		vector<string> roundKeys;
 		makeRoundKeys(roundKeys, cipherKey);
-		/*
-		for(int i = 0; i < 10; i++) {
-			subBytes(blocks[i]);
-			shiftRows(blocks[i]);
-			if(i > 10) mixColumns(blocks[i]);
-			addRoundKey(blocks[i], roundKeys[i]);
+		for (int i = 0; i < blocks.size(); i++) {
+			if (i == 3)
+				cout << "";
+			for (int j = 0; j < 10; j++) {
+				subBytes(blocks[i]);
+				shiftRows(blocks[i]);
+				if (i < 9) mixColumns(blocks[i]);
+				addRoundKey(blocks[i], roundKeys[j]);
+			}
 		}
-		*/
+		
 		m_text = "";
-		for (auto item : roundKeys) {
-			m_text += item + "\n--------------------\n";
+		for (auto item : blocks) {
+			m_text += item;
 		}
-		save("Keys.txt");
 	}
 	void decrypt(string key) {
 		string temp("");
@@ -101,10 +106,10 @@ int _tmain(int argc, _TCHAR* argv[])
 	File file = File("./Resources/file", RW);
 
 	file.encrypt("1111");
-	file.decrypt("1111");
 	
 	cout << "=========\n" << file.getText() << "\n=========\n";
 
+	file.save("./Resources/hex.txt");
 	system("pause");
 	return 0;
 }
