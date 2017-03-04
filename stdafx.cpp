@@ -48,7 +48,7 @@ const unsigned long invSbox[16][16] = {
 };
 
 const unsigned long rcon[10][4] = {
-	{0x01, 0x00, 0x00, 0x00},
+	{0x01, 0x00, 0x00, 0x00 },
 	{0x02, 0x00, 0x00, 0x00},
 	{0x04, 0x00, 0x00, 0x00},
 	{0x08, 0x00, 0x00, 0x00},
@@ -68,7 +68,7 @@ string toHex(int item) {
 	sstream << hex << item;
 	tmp = sstream.str();
 	if (tmp.length() == 1 && tolower(tmp[0]) == 'a') 
-		tmp += 'C';
+		tmp.insert(tmp.begin(), '0');
 	return tmp;
 }
 string toDec(unsigned char *item) {
@@ -77,22 +77,18 @@ string toDec(unsigned char *item) {
 	unsigned char t1 = item[0];
 	unsigned char t2 = item[1];
 	unsigned char t3;
+	if (t1 > '9')
+		t1 = t1 - 87;
+	else
+		t1 = t1 - 48;
 
-	if (t1 != 'a' && t2 != 'C')	{
-		if (t1 > '9')
-			t1 = t1 - 87;
-		else
-			t1 = t1 - 48;
-
-		if (t2 > '9')
-			t2 = t2 - 87;
-		else
-			t2 = t2 - 48;
+	if (t2 > '9')
+		t2 = t2 - 87;
+	else
+		t2 = t2 - 48;
 
 		t3 = t1 * 16 + t2 * 1;
-	}
-	else
-		t3 = 10;
+
 	sstream << t3;
 	tmp = sstream.str();
 	return tmp;
@@ -160,7 +156,8 @@ uint8_t gmult(uint8_t a, uint8_t b) {
 
 	return (uint8_t)p;
 }
-void coef_mult(uint8_t* a, uint8_t* b, uint8_t* d) {
+void coef_mult(uint8_t *a, uint8_t *b, uint8_t *d) {
+
 	d[0] = gmult(a[0], b[0]) ^ gmult(a[3], b[1]) ^ gmult(a[2], b[2]) ^ gmult(a[1], b[3]);
 	d[1] = gmult(a[1], b[0]) ^ gmult(a[0], b[1]) ^ gmult(a[3], b[2]) ^ gmult(a[2], b[3]);
 	d[2] = gmult(a[2], b[0]) ^ gmult(a[1], b[1]) ^ gmult(a[0], b[2]) ^ gmult(a[3], b[3]);
@@ -214,6 +211,7 @@ void makeRoundKeys(vector<string> &roundKeys, const string cipherKey) {
 		string Rcon = "";
 
 		//making first column
+		//of a 4-word key
 		for (int j = 6; j < 32; j += 8) {
 			Wi += roundKeys[i-1][j];
 			Wi += roundKeys[i-1][j + 1];
@@ -236,16 +234,19 @@ void makeRoundKeys(vector<string> &roundKeys, const string cipherKey) {
 		for (int j = 0; j < 8; j += 2) {
 			string A, B, C;
 			(A = Wi_4[j]) += Wi_4[j + 1];
-			(B = Wi[j]) += Wi[j + 1];
-			(C = Rcon[j / 2]);
+			(B = Wi[j])	  +=   Wi[j + 1];
+			(C = Rcon[j]) += Rcon[j + 1];
 			temp += hexPlus(A, B, C);
 		}
-
+		
 		//push the temp-column in
 		for (int j = 0, k = 0; j < 32, k < 8; j += 8, k += 2) {
 			roundKeys[i][j] = temp[k];
 			roundKeys[i][j + 1] = temp[k+1];
 		}
+		//end of the making
+		//of the first column
+
 
 		//making the next three columns
 		//mostly like before without 
@@ -263,6 +264,7 @@ void makeRoundKeys(vector<string> &roundKeys, const string cipherKey) {
 				Wi_4 += roundKeys[i-1][k + 1];
 			}
 
+
 			for (int k = 0; k < 8; k += 2) {
 				string A(""), B("");
 				(A = Wi_4[k]) += Wi_4[k + 1];
@@ -276,14 +278,13 @@ void makeRoundKeys(vector<string> &roundKeys, const string cipherKey) {
 			}
 		}
 	}
-	//remove cipher-key from key storage
-	roundKeys.erase(roundKeys.begin());
+
 }
 
 void subBytes(string& block) {
-	size_t lenght = block.length()-1;
+	size_t lenght = block.length();
 	string temp("");
-	for (int i = 0; i < lenght; i+=2) {
+	for (int i = 0; i < lenght; i += 2) {
 		unsigned x, y = x = 0;
 		string tX, tY = tX = "";
 
@@ -293,6 +294,22 @@ void subBytes(string& block) {
 		if (toHex(sBox[x][y]).length() == 1)
 			temp += "0";
 		temp += toHex(sBox[x][y]);
+	}
+	block = temp;
+}
+void invSubBytes(string& block) {
+	size_t lenght = block.length();
+	string temp("");
+	for (int i = 0; i < lenght; i += 2) {
+		unsigned x, y = x = 0;
+		string tX, tY = tX = "";
+
+		tX = block[i]; tY = block[i + 1];
+		x = stoi(tX, nullptr, 16);
+		y = stoi(tY, nullptr, 16);
+		if (toHex(invSbox[x][y]).length() == 1)
+			temp += "0";
+		temp += toHex(invSbox[x][y]);
 	}
 	block = temp;
 }
@@ -313,27 +330,72 @@ void shiftRows(string& block) {
 
 	block = temp;
 }
-void mixColumns(string& block) {
+void invShiftRows(string& block) {
 	size_t length = block.length();
 
 	string temp = "";
+
+	for (int i = 0; i < length; i += 8) {
+		string row = "";
+		for (int j = 0; (j < 8) && (j + i < length); j++) {
+			row += block[i + j];
+		}
+		rotWord8b(row, 4 - (i / 8));
+		temp += row;
+	}
+
+	block = temp;
+}
+
+void mixColumns(string& block) {
+	// a(x) = {02} + {01}x + {01}x2 + {03}x3
 	uint8_t a[] = { 0x02, 0x01, 0x01, 0x03 };
+
 	uint8_t col[4], res[4];
-	for (int i = 0; i < length; i+=8) {
-		for (int j = 0; (j < 8) && (i+j+1 < length); j+=2) {
-			string word = "";
-			(word += block[i + j]) += block[i + j + 1];
-			col[j/2] = hexToBin(word).to_ulong();
+
+	for (int i = 0; i < 8; i += 2) {
+		for (int j = i; j < 32; j += 8) {
+			string temp = "";
+			temp = block[j];
+			temp += block[j + 1];
+			col[j / 8] = (uint8_t)hexToBin(temp).to_ulong();
 		}
 
 		coef_mult(a, col, res);
 
-		for (int j = 0; j < 4; j++) {
-			temp += ulToHex(res[j]);
+		for (int j = i; j < 32; j += 8) {
+			string temp = "";
+			temp = ulToHex(res[j / 8]);
+			block[j] = temp[0];
+			block[j + 1] = temp[1];
 		}
 	}
-	block = temp;
 }
+void invMixColumns(string& block) {
+	// a(x) = {0e} + {09}x + {0d}x2 + {0b}x3
+	uint8_t a[] = { 0x0e, 0x09, 0x0d, 0x0b };
+
+	uint8_t col[4], res[4];
+
+	for (int i = 0; i < 8; i += 2) {
+		for (int j = i; j < 32; j += 8) {
+			string temp = "";
+			temp = block[j];
+			temp += block[j + 1];
+			col[j / 8] = (uint8_t)hexToBin(temp).to_ulong();
+		}
+
+		coef_mult(a, col, res);
+
+		for (int j = i; j < 32; j += 8) {
+			string temp = "";
+			temp = ulToHex(res[j / 8]);
+			block[j] = temp[0];
+			block[j + 1] = temp[1];
+		}
+	}
+}
+
 void addRoundKey(string& block, const string key) {
 	size_t length = block.length();
 	string temp(32, '0');
