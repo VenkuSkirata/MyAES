@@ -2,7 +2,6 @@
 // ConsoleApplication1.pch will be the pre-compiled header
 // stdafx.obj will contain the pre-compiled type information
 
-#include <bitset>
 #include <Poco\MD5Engine.h>
 #include <glm\glm.hpp>
 #include "stdafx.h"
@@ -62,16 +61,8 @@ const unsigned long rcon[10][4] = {
 #pragma endregion
 
 #pragma region Convert zone
-string toHex(int item) {
-	string tmp("");
-	stringstream sstream;
-	sstream << hex << item;
-	tmp = sstream.str();
-	if (tmp.length() == 1 && tolower(tmp[0]) == 'a') 
-		tmp.insert(tmp.begin(), '0');
-	return tmp;
-}
-string toDec(unsigned char *item) {
+
+/*string toDec(unsigned char *item) {
 	string tmp("");
 	stringstream sstream;
 	unsigned char t1 = item[0];
@@ -92,7 +83,8 @@ string toDec(unsigned char *item) {
 	sstream << t3;
 	tmp = sstream.str();
 	return tmp;
-}
+}*/
+
 bitset<8> hexToBin(string item) {
 	unsigned temp;
 	stringstream ss;
@@ -101,7 +93,7 @@ bitset<8> hexToBin(string item) {
 	bitset<8> result(temp);
 	return result;
 }
-string binToHex(bitset<8> item) {
+string toHex(bitset<8> item) {
 	string result;
 	stringstream ss;
 	ss << hex << item.to_ulong();
@@ -110,7 +102,7 @@ string binToHex(bitset<8> item) {
 		result.insert(result.begin(), '0');
 	return result;
 }
-string ulToHex(unsigned long item) {
+string toHex(unsigned long item) {
 	string temp;
 	stringstream ss;
 	ss << hex << item;
@@ -127,7 +119,7 @@ string hexPlus(string A, string B, string C) {
 	bitset<8> b = hexToBin(B);
 	bitset<8> c = hexToBin(C);
 	
-	return binToHex(a ^ b ^ c);
+	return toHex(a ^ b ^ c);
 }
 void rotWord8b(string &item, short iter) {
 	string temp("");
@@ -200,10 +192,10 @@ string md5(string password) {
 }
 
 void makeRoundKeys(vector<string> &roundKeys, const string cipherKey) {
-	roundKeys = vector<string>(10);
 	roundKeys.insert(roundKeys.begin(), cipherKey);
-	for (int i = 1; i < 11; i++)
-		roundKeys[i] = string(32, '0');
+	for (int i = 0; i < 10; i++) {
+		roundKeys.push_back("00000000000000000000000000000000");
+	}
 
 	for (int i = 1; i < 11; i++) {
 		string Wi = "";
@@ -223,7 +215,7 @@ void makeRoundKeys(vector<string> &roundKeys, const string cipherKey) {
 		}
 
 		for (int j = 0; j < 4; j++) {
-			Rcon += ulToHex(rcon[i-1][j]);
+			Rcon += toHex(rcon[i-1][j]);
 		}
 
 		rotWord8b(Wi, 1);
@@ -250,7 +242,7 @@ void makeRoundKeys(vector<string> &roundKeys, const string cipherKey) {
 
 		//making the next three columns
 		//mostly like before without 
-		//adding the cipher-key
+		//adding the rcon-row
 		for (int j = 2; j < 8; j += 2) {
 			Wi = "";	Wi_4 = ""; temp = "";
 
@@ -365,7 +357,7 @@ void mixColumns(string& block) {
 
 		for (int j = i; j < 32; j += 8) {
 			string temp = "";
-			temp = ulToHex(res[j / 8]);
+			temp = toHex(res[j / 8]);
 			block[j] = temp[0];
 			block[j + 1] = temp[1];
 		}
@@ -389,7 +381,7 @@ void invMixColumns(string& block) {
 
 		for (int j = i; j < 32; j += 8) {
 			string temp = "";
-			temp = ulToHex(res[j / 8]);
+			temp = toHex(res[j / 8]);
 			block[j] = temp[0];
 			block[j + 1] = temp[1];
 		}

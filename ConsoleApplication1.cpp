@@ -56,6 +56,8 @@ public:
 			(blocks.end()-1)->push_back('0');
 		}
 
+		system_clock::time_point pointStart, pointEnd;
+		pointStart = system_clock::now();
 		//Ciphering
 		vector<string> roundKeys;
 		makeRoundKeys(roundKeys, cipherKey);
@@ -68,6 +70,9 @@ public:
 				addRoundKey(blocks[i], roundKeys[j + 1]);
 			}
 		}
+		pointEnd = system_clock::now();
+		cout << "Encrypted in: " << duration_cast<milliseconds>(pointEnd - pointStart).count() << "ms" << endl;
+
 		m_text = "";
 		for (auto item : blocks) {
 			m_text += item;
@@ -106,7 +111,7 @@ public:
 				word = blocks[i][j];
 				word += blocks[i][j+1];
 				if (word != "00")
-					temp += toDec((unsigned char*) word.c_str());
+					temp += static_cast<unsigned char>(hexToBin(word.c_str()).to_ulong());
 			}
 		}
 		m_text = move(temp);
@@ -136,19 +141,11 @@ int _tmain(int argc, _TCHAR* argv[])
 	setlocale(LC_ALL, "Russian");
 
 	File file = File("./Resources/file");
-	system_clock::time_point pointStart, pointEnd;
 
-	pointStart = system_clock::now();
 	file.encrypt("1111");
-	pointEnd = system_clock::now();
 
-	cout << "Encrypted in: " << duration_cast<milliseconds>(pointEnd - pointStart).count() << "ms" << endl;
-
-	pointStart = system_clock::now();
 	file.decrypt("1111");
-	pointEnd = system_clock::now();
-
-	cout << "Decrypted in: " << duration_cast<milliseconds>(pointEnd - pointStart).count() << "ms" << endl;
+	
 	file.save("./Resources/plain.txt");
 	system("pause");
 	return 0;

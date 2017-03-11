@@ -9,6 +9,7 @@
 #include <iostream>
 #include <sstream>
 #include <chrono>
+#include <bitset>
 
 #include <stdio.h>
 #include <tchar.h>
@@ -16,8 +17,9 @@
 
 using namespace std;
 
-string toHex(int);
-string toDec(unsigned char*);
+string toHex(bitset<8> item);
+string toHex(unsigned long item);
+bitset<8> hexToBin(string item);
 
 vector<string> splitText(string, unsigned);
 
