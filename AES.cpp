@@ -6,6 +6,7 @@ using namespace std;
 
 const size_t BLOCK_SIZE = 16;
 
+
 namespace AES_128 {
 	const size_t NK = 4;
 	const size_t NR = 10;
@@ -85,7 +86,7 @@ inline uint8_t gmult(uint8_t a, uint8_t b) {
 
 	uint8_t p = 0, i = 0, hbs = 0;
 
-	for (i = 0; i < 8; i++) {
+	for (i = 0; i < 8; ++i) {
 		if (b & 1) {
 			p ^= a;
 		}
@@ -96,7 +97,7 @@ inline uint8_t gmult(uint8_t a, uint8_t b) {
 		b >>= 1;
 	}
 
-	return (uint8_t)p;
+	return static_cast<uint8_t>(p);
 }
 void coef_mult(uint8_t *a, uint8_t *b, uint8_t *d) {
 
@@ -105,58 +106,58 @@ void coef_mult(uint8_t *a, uint8_t *b, uint8_t *d) {
 	d[2] = gmult(a[2], b[0]) ^ gmult(a[1], b[1]) ^ gmult(a[0], b[2]) ^ gmult(a[3], b[3]);
 	d[3] = gmult(a[3], b[0]) ^ gmult(a[2], b[1]) ^ gmult(a[1], b[2]) ^ gmult(a[0], b[3]);
 }
-void mxClmns(uint8_t* block, uint8_t *a) {
-	uint8_t res[4];
 
-	for (int i = 0; i < 4; i++) {
-		uint8_t col[4], res[4];
-		for (int j = i; j < 16; j += 4)
-			col[j / 4] = block[j];
+void sbBts(uint8_t* block, size_t count, const uint8_t from[16][16]) {
 
-		coef_mult(a, col, res);
+	/*Getting the current value as 0xXY and setting it 
+	*to the from[x][y]*/
+	for (int i = 0; i < count; ++i) {
+		//first value
+		size_t x = block[i] >> 4;
+		//second value
+		size_t y = block[i] & 0x0f;
 
-		for (int j = i; j < 16; j += 4)
-			block[j] = res[j / 4];
+		block[i] = from[x][y];
 	}
 }
-
 void subBytes(uint8_t* block, size_t count) {
-	for (int i = 0; i < count; i++) {
-		size_t x, y;
-		char *temp = new char[2];
-		sprintf(temp, "%02x", block[i]);
-		temp = new char[4]{ temp[0], 0x00, temp[1], 0x00 };
-		x = stoi(temp, 0, 16);
-		y = stoi(temp + 2, 0, 16);
-		block[i] = sBox[x][y];
-		delete[] temp;
-	}
-
+	sbBts(block, count, sBox);
 }
 void invSubBytes(uint8_t* block, size_t count) {
-	for (int i = 0; i < count; i += 1) {
-		size_t x, y;
-		char *temp = new char[4];
-		sprintf(temp, "%02x", block[i]);
-		temp = new char[4]{ temp[0], 0x00, temp[1], 0x00 };
-		x = stoi(temp, 0, 16);
-		y = stoi(temp + 2, 0, 16);
-		block[i] = invSbox[x][y];
-		delete[] temp;
-	}
+	sbBts(block, count, invSbox);
 }
 
 void shiftRows(uint8_t* block) {
-	for (int i = 1; i < 4; i++) {
+	for (int i = 1; i < 4; ++i) {
 		rotWord4b(block + (i * 4), i);
 	}
 }
 void invShiftRows(uint8_t* block) {
-	for (int i = 1; i < 4; i++) {
+	for (int i = 1; i < 4; ++i) {
 		rotWord4b(block + (i * 4), 4 - i);
 	}
 }
 
+void mxClmns(uint8_t* block, uint8_t *a) {
+	uint8_t res[4];
+
+	for (int i = 0; i < 4; ++i) {
+		uint8_t col[4], res[4];
+		//get column
+		for (int j = i; j < BLOCK_SIZE; j += 4) {
+			col[j / 4] = block[j];
+		}
+
+		//multiply column by a
+		//with res = output
+		coef_mult(a, col, res);
+
+		//write result
+		for (int j = i; j < BLOCK_SIZE; j += 4) {
+			block[j] = res[j / 4];
+		}
+	}
+}
 void mixColumns(uint8_t* block) {
 	uint8_t a[] = { 0x02, 0x01, 0x01, 0x03 };
 
@@ -168,14 +169,17 @@ void invMixColumns(uint8_t* block) {
 	mxClmns(block, a);
 }
 
-//maked by the FIPS 197 (analog of)
+//made by the FIPS 197 (analog of)
 void makeRoundKeys(std::vector<uint8_t* >& dest, const uint8_t* key,
 					const size_t nk, const size_t nr) {
 	//Check keysize and push
 	//the key into the vector
 	switch (nk) {
 		case 4: {
-			dest.insert(dest.begin(), (uint8_t*)key);
+			uint8_t* first = new uint8_t[17];
+			memcpy(first, key, 16);
+			first[16] = 0x00;
+			dest.insert(dest.begin(), first);
 			break;
 		}
 		case 6: {
@@ -216,11 +220,11 @@ void makeRoundKeys(std::vector<uint8_t* >& dest, const uint8_t* key,
 		}
 	}
 
-	uint8_t *temp = new uint8_t[5]; //may be Wi-1 and Wi
+	uint8_t temp[5]; //may be Wi-1 and Wi
 	temp[4] = 0x00; 
 	size_t totalColumns = 4 * (nr + 1);
 
-	for (int i = nk; i < totalColumns; i++) {
+	for (int i = nk; i < totalColumns; ++i) {
 		//Current indeces of column
 		//we work on
 		size_t vectorIndex = i / 4,
@@ -230,8 +234,8 @@ void makeRoundKeys(std::vector<uint8_t* >& dest, const uint8_t* key,
 		//there is less items we need
 		if (dest.size() - 1 < vectorIndex) {
 			uint8_t *item = new uint8_t[17];
-			item[16] = 0x00;
-			memset(item, '.', 16);
+			item[BLOCK_SIZE] = 0x00;
+			memset(item, '.', BLOCK_SIZE);
 			dest.push_back(item);
 		}
 
@@ -271,85 +275,74 @@ void makeRoundKeys(std::vector<uint8_t* >& dest, const uint8_t* key,
 		dest[vectorIndex][columnIndex + 8] =  dest[vectorIndexToGet][lineIndexToGet + 8]  ^ temp[2];
 		dest[vectorIndex][columnIndex + 12] = dest[vectorIndexToGet][lineIndexToGet + 12] ^ temp[3];
 	}
-
-	delete[] temp;
 }
 void addRoundKey(uint8_t* block, const uint8_t* key) {
-	for (int i = 0; i < 16; i++) {
+	for (int i = 0; i < BLOCK_SIZE; i++) {
 			block[i] = block[i] ^ key[i];
 	}
 }
 
-namespace AES {
-	void encrypt(uint8_t* block, uint8_t* cipherKey) {
-		size_t nr, nk;
-		switch (strlen((char*)cipherKey)) {
+bool checkKey(const uint8_t *const key, size_t &nk, size_t &nr)  {
+	switch (strlen((char*)key)) {
 		case 16: {
 			nr = AES_128::NR;
 			nk = AES_128::NK;
-			break;
+			return true;
 		}
 		case 24: {
 			nr = AES_192::NR;
 			nk = AES_192::NK;
-			break;
+			return true;
 		}
 		case 32: {
 			nr = AES_256::NR;
 			nk = AES_256::NK;
-			break;
+			return true;
 		}
 		default: {
-			throw invalid_argument("Password lenght is incorrect: \
-								   							   		only 16\\24\\32 keylength avaible.");
+			throw invalid_argument("Password lenght is incorrect: only BLOCK_SIZE\\24\\32 keylength avaible.");
+			return false;
+		}
+	}
+}
+void deleteRoundKeys(vector<uint8_t*> items) {
+	for (size_t i = 0; i < items.size(); ++i)
+	{
+		delete[] items[i];
+	}
+}
+
+
+namespace AES {
+	void encrypt(uint8_t* block, const uint8_t* cipherKey) {
+		size_t nr, nk;
+		if (!checkKey(cipherKey, nk, nr))
 			return;
-		}
-		}
 
 		//Making the keys for each round
 		//and one more to use at the first time
 		vector<uint8_t*> roundKeys;
 		makeRoundKeys(roundKeys, cipherKey, nk, nr);
 
-		size_t mixClmnTo = nr - 1;
 		//Ciphering
 		addRoundKey(block, roundKeys[0]);
-		for (int j = 0; j < nr; j++) {
+
+		for (int j = 0; j < nr - 1; ++j) {
 			subBytes(block, BLOCK_SIZE);
 			shiftRows(block);
-			if (j < mixClmnTo) mixColumns(block);
+			mixColumns(block);
 			addRoundKey(block, roundKeys[j + 1]);
 		}
+		subBytes(block, BLOCK_SIZE);
+		shiftRows(block);
+		addRoundKey(block, roundKeys[nr]);
 
 		//cleaning the memory
-		for (auto item : roundKeys) {
-			delete[](item);
-		}
+		deleteRoundKeys(roundKeys);
 	}
-	void decrypt(uint8_t* block, uint8_t* cipherKey) {
+	void decrypt(uint8_t* block, const uint8_t* cipherKey) {
 		size_t nr, nk;
-		switch (strlen((char*)cipherKey)) {
-		case 16: {
-			nr = AES_128::NR;
-			nk = AES_128::NK;
-			break;
-		}
-		case 24: {
-			nr = AES_192::NR;
-			nk = AES_192::NK;
-			break;
-		}
-		case 32: {
-			nr = AES_256::NR;
-			nk = AES_256::NK;
-			break;
-		}
-		default: {
-			throw invalid_argument("Password lenght is incorrect: \
-								   							   								   		   only 16\\24\\32 keylength avaible.");
-			return;
-		}
-		}
+		if (!checkKey(cipherKey, nk, nr)) return;
 
 		//Making the keys for each round
 		//and one more to use at the first time
@@ -358,16 +351,76 @@ namespace AES {
 
 		//Deciphering
 		addRoundKey(block, roundKeys[nr]);
-		for (int j = nr - 1; j >= 0; j--) {
+		for (int j = nr - 1; j > 0; j--) {
 			invShiftRows(block);
 			invSubBytes(block, BLOCK_SIZE);
 			addRoundKey(block, roundKeys[j]);
-			if (j != 0)
-				invMixColumns(block);
+			invMixColumns(block);
 		}
+		invShiftRows(block);
+		invSubBytes(block, BLOCK_SIZE);
+		addRoundKey(block, roundKeys[0]);
+
 		//cleaning the memory
-		for (auto item : roundKeys) {
-			delete[](item);
-		}
+		deleteRoundKeys(roundKeys);
+	}
+
+
+	void encrypt(char* block, const uint8_t* cipherKey) {
+		encrypt((uint8_t*)block, cipherKey);
+	}
+	void encrypt(std::string block, const uint8_t* cipherKey) {
+		uint8_t* temp = (uint8_t*)block.data();
+		encrypt(temp, cipherKey);
+	}
+	void encrypt(uint8_t* block, const char* cipherKey) {
+		encrypt(block, (uint8_t*)cipherKey);
+	}
+	void encrypt(char* block, const char* cipherKey) {
+		encrypt((uint8_t*)block, (uint8_t*)cipherKey);
+	}
+	void encrypt(std::string block, const char* cipherKey) {
+		uint8_t* temp = (uint8_t*)block.data();
+		encrypt(temp, (uint8_t*)cipherKey);
+	}
+	void encrypt(uint8_t* block, const std::string cipherKey) {
+		encrypt(block, (uint8_t*)cipherKey.c_str());
+	}
+	void encrypt(char* block, const std::string cipherKey) {
+		encrypt((uint8_t*)block, (uint8_t*)cipherKey.c_str());
+
+	}
+	void encrypt(std::string block, const std::string cipherKey) {
+		uint8_t* temp = (uint8_t*)block.data();
+		encrypt(temp, (uint8_t*)cipherKey.c_str());
+	}
+
+	void decrypt(char* block, const uint8_t* cipherKey) {
+		decrypt((uint8_t*)block, cipherKey);
+	}
+	void decrypt(std::string block, const uint8_t* cipherKey) {
+		uint8_t* temp = (uint8_t*)block.data();
+		decrypt(temp, cipherKey);
+	}
+	void decrypt(uint8_t* block, const char* cipherKey) {
+		decrypt(block, (uint8_t*)cipherKey);
+	}
+	void decrypt(char* block, const char* cipherKey) {
+		decrypt((uint8_t*)block, (uint8_t*)cipherKey);
+	}
+	void decrypt(std::string block, const char* cipherKey) {
+		uint8_t* temp = (uint8_t*)block.data();
+		decrypt(temp, (uint8_t*)cipherKey);
+	}
+	void decrypt(uint8_t* block, const std::string cipherKey) {
+		decrypt(block, (uint8_t*)cipherKey.c_str());
+	}
+	void decrypt(char* block, const std::string cipherKey) {
+		decrypt((uint8_t*)block, (uint8_t*)cipherKey.c_str());
+
+	}
+	void decrypt(std::string block, const std::string cipherKey) {
+		uint8_t* temp = (uint8_t*)block.data();
+		decrypt(temp, (uint8_t*)cipherKey.c_str());
 	}
 }

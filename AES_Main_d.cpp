@@ -1,6 +1,17 @@
+/*
+#############################################################
+#				  AES IMPLEMENTATION						#
+#					made by: Venku							#
+#	main.cpp	-	using example							#
+#	AES.h		-	declarations of encrypt-functions		#
+#	AES.cpp		-	definitions  of encrypt-functions		#
+#			You can use it whatever you want.				#
+#############################################################
+*/
+
 #include "AES.h"
-#include <stdio.h>
 #include <stdlib.h>
+#include <cstdio>
 
 int main(int argc, char** argv) {
 	//text block - example 1
@@ -29,18 +40,21 @@ int main(int argc, char** argv) {
 							0x3d, 0xca, 0x73, 0x7d, 0x35, 0x61, 0x98, 0x14,
 							0xeb, 0x71, 0xae, 0x77, 0x2c, 0x08, 0x10, 0xdf,
 							0x10, 0xbe, 0xf0, 0x81, 0x07, 0xd7, 0xa3, 0xf4, 0x00 };
+
 	//example 1
 	printf("==========example 1========\n");
-	AES::encrypt(text1, key_192);
-	AES::decrypt(text1, key_192);
+	AES::encrypt(text1, key_128);
+	AES::decrypt(text1, key_128);
+
 	for (int i = 0; i < 16; i += 4) {
 		printf("%02x, %02x, %02x, %02x\n", text1[i + 0], text1[i + 1], text1[i + 2], text1[i + 3]);
 	}
-	printf("==========example 2========\n");
 
 	//example 2
-	AES::encrypt(text2, key_192);
-	AES::decrypt(text2, key_192);
+	printf("==========example 2========\n");
+	std::string test = std::string((char*)text2);
+	AES::encrypt(test, key_192);
+	AES::decrypt(test, key_192);
 	printf("%s\n", text2);
 
 	system("pause");
